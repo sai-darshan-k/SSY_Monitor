@@ -225,6 +225,21 @@
   @media print {
     .masthead { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
+
+  .photo-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px;
+  }
+  .photo-tile {
+    position: relative; border-radius: 8px; overflow: hidden; border: 1px solid var(--border);
+    aspect-ratio: 1 / 1; background: var(--bg); display: block; text-decoration: none;
+  }
+  .photo-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-caption {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(to top, rgba(22,35,63,0.85), transparent);
+    color: white; font-size: 10px; padding: 14px 8px 6px; line-height: 1.3;
+  }
+
 </style>
 </head>
 <body>
@@ -237,7 +252,7 @@
       <div class="masthead-sub">ಸಂಧ್ಯಾ ಸುರಕ್ಷಾ ಯೋಜನೆ · ಬೆಂಗಳೂರು ಗ್ರಾಮಾಂತರ ಜಿಲ್ಲೆ (Bengaluru Rural District)</div>
     </div>
     <div class="masthead-right">
-      <div class="masthead-org">CHRIST (Deemed to be University)</div>
+      <div class="masthead-org">CHRIST (Deemed to be University) &times; Pragati Youth Organization</div>
       <div class="status-row">
         <span class="live-pill"><span class="live-dot"></span><span id="liveStatus">Live</span></span>
       </div>
@@ -406,6 +421,51 @@
   </div>
 
   <div class="section-header">
+    <h2>Field Photo Documentation</h2>
+    <span class="section-sub">Survey photos uploaded to Google Drive, by enumerator</span>
+  </div>
+
+  <div class="kpi-strip" style="grid-template-columns: repeat(3, 1fr); margin-bottom:16px">
+    <div class="kpi-cell">
+      <div class="kpi-label">Total Photos Uploaded</div>
+      <div class="kpi-value" id="totalPhotos">—</div>
+      <div class="kpi-sub">across all submissions</div>
+    </div>
+    <div class="kpi-cell">
+      <div class="kpi-label">Photo Coverage</div>
+      <div class="kpi-value" id="photoCoveragePct">—</div>
+      <div class="kpi-sub">of collected responses</div>
+    </div>
+    <div class="kpi-cell">
+      <div class="kpi-label">Contributing Enumerators</div>
+      <div class="kpi-value" id="photoSurveyorCount">—</div>
+      <div class="kpi-sub">have uploaded at least one photo</div>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-card-header">
+      <div class="table-card-title">Photos Uploaded, by Enumerator</div>
+      <div class="table-card-sub">Who has documented the most field visits</div>
+    </div>
+    <table>
+      <thead><tr><th>Surveyor</th><th>Photos Uploaded</th><th>Share</th></tr></thead>
+      <tbody id="photoSurveyorTableBody"><tr><td colspan="3" class="empty-state"><div class="spinner"></div>Loading…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="chart-card" style="margin-bottom:16px">
+    <div class="chart-card-header">
+      <div class="chart-card-title">Recent Photo Previews</div>
+      <div class="chart-card-sub">Most recent uploads — click any photo to open full size in Google Drive</div>
+    </div>
+    <div id="photoGrid" class="photo-grid">
+      <div class="empty-state" style="grid-column:1/-1"><div class="spinner"></div>Loading photos…</div>
+    </div>
+  </div>
+
+
+  <div class="section-header">
     <h2>Field Team Performance</h2>
     <span class="section-sub">Submissions by enumerator</span>
   </div>
@@ -421,6 +481,19 @@
     </table>
   </div>
 
+  <div class="footnote">
+    <strong>Methodology note:</strong> Taluk-wise sample targets are derived by applying the approved pilot sampling
+    fraction (5,884 ÷ 45,545 universe = 12.92%) to each taluk's Sandhya Suraksha Yojane beneficiary population.
+    Total Sandhya Suraksha Yojane pilot target: <strong>5,629</strong> of 43,576 universe beneficiaries
+    across Doddaballapura, Devanahalli, Nelamangala and Hosakote taluks.
+  </div>
+
+</div>
+
+<div class="report-footer" style="max-width:1360px;margin:0 auto;padding:0 32px 32px">
+  <span>Sandhya Suraksha Yojane Pilot Monitoring Report · CHRIST (Deemed to be University) &times; Pragati Youth Organization</span>
+  <span>Phase I · Bengaluru Rural District · Jul–Aug 2026</span>
+</div>
 
 <script>
 // ═══════════════════════════════════════════════════════════
@@ -628,6 +701,42 @@ function updateHero(d) {
     `${avgPerDay.toFixed(1)} collected/day on average · ${Math.ceil(requiredPerDay)} needed/day to finish by 22 Aug`;
 }
 
+function renderPhotoSection(d) {
+  const totalPhotos = d.totalPhotos || 0;
+  const total = d.total || 1;
+  document.getElementById('totalPhotos').textContent = totalPhotos.toLocaleString();
+  document.getElementById('photoCoveragePct').textContent = Math.round(totalPhotos/total*100) + '%';
+
+  const bySurveyor = d.byPhotoSurveyor || {};
+  const surveyorCount = Object.keys(bySurveyor).length;
+  document.getElementById('photoSurveyorCount').textContent = surveyorCount;
+
+  if (surveyorCount === 0) {
+    document.getElementById('photoSurveyorTableBody').innerHTML = '<tr><td colspan="3" class="empty-state">No photos uploaded yet</td></tr>';
+  } else {
+    const rows = Object.entries(bySurveyor).sort((a,b) => b[1]-a[1]);
+    let html = '';
+    rows.forEach(([name, count]) => {
+      const share = Math.round(count/totalPhotos*100);
+      html += `<tr><td class="taluk-name">${name}</td><td><strong>${count}</strong></td>
+        <td><div class="mini-bar"><div class="mini-bar-track"><div class="mini-bar-fill" style="width:${share}%"></div></div><span style="font-size:12px">${share}%</span></div></td></tr>`;
+    });
+    document.getElementById('photoSurveyorTableBody').innerHTML = html;
+  }
+
+  const photos = d.recentPhotos || [];
+  const grid = document.getElementById('photoGrid');
+  if (photos.length === 0) {
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">No photos uploaded yet</div>';
+    return;
+  }
+  grid.innerHTML = photos.map(p => `
+    <a class="photo-tile" href="https://drive.google.com/file/d/${p.fileId}/view" target="_blank" rel="noopener">
+      <img src="https://drive.google.com/thumbnail?id=${p.fileId}&sz=w300" loading="lazy" alt="Survey photo"/>
+      <div class="photo-caption">${p.surveyor || 'Unknown'}<br>${p.taluk || ''} ${p.date ? '· '+p.date : ''}</div>
+    </a>`).join('');
+}
+
 async function loadAllData() {
   document.getElementById('liveStatus').textContent = 'Syncing…';
   renderProgressBars(null); renderTalukTable(null);
@@ -651,6 +760,7 @@ async function loadAllData() {
     renderCollectedShare(data.byTaluk);
     renderCumulative(data.submissionDates);
     renderSurveyorTable(data.bySurveyor);
+    renderPhotoSection(data);
 
     document.getElementById('liveStatus').textContent = 'Live';
     document.getElementById('lastUpdated').textContent = 'Last updated ' + new Date().toLocaleString('en-IN', { dateStyle:'medium', timeStyle:'short' });
